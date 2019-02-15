@@ -25,6 +25,7 @@ struct rtc_time_t{
 typedef struct rtc_time_t rtc_time_t;
 
 int rtc_get_time(rtc_time_t* time);
-int rtc_set_time(rtc_time_t* time);
+int rtc_write_reg_raw(uint8_t address, uint8_t value);
+static xSemaphoreHandle RTC_IO_SEMAPHORE = NULL;
 
 #endif
