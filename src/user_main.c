@@ -51,14 +51,6 @@ uint32 user_rf_cal_sector_set(void)
 
 /*
 TODO:
-// 1. digit decoder byte to byte state
-
-2. spi bit bang (spi data queue) (potential timing concern)
-
-3. I2C communication with RTC module 
-
-4. pwm led
-
 5. WIFI config within 5 min of boot
 
 6. Periodic connect network and perform NTP
@@ -75,51 +67,50 @@ TODO:
 
 #define PIN_ILED 4
 
-#define RTC_I2C_PORT I2C_NUM_0
-
 static xQueueHandle shift_reg_quque;
 static xQueueHandle rtc_output_queue;
 static xQueueHandle rtc_input_queue;
 static xQueueHandle rgb_input_queue;
 
 
-void display_service(void* arg){
+void main_clock_display_loop(void* arg){
     // init shift reg pin
     display_buffer_t db;
     display_driver_init(&db);
     rtc_time_t t;
+    rtc_init_i2c();
+
+
     while(1){
-        if(xQueueReceive(rtc_output_queue, &t, 0) == pdTRUE){
-            display_driver_set(&db, 5, t.second[1]);
-            display_driver_set(&db, 4, t.second[0]);
-            display_driver_set(&db, 3, t.minute[1]);
-            display_driver_set(&db, 2, t.minute[0]);
-            display_driver_set(&db, 1, t.hour[0]);
-            display_driver_set(&db, 0, t.hour[1]);
-        }
-        display_driver_show(rtc_output_queue);
-        vTaskDelay(500/portTICK_RATE_MS);
+        rtc_get_time(&t);
+        display_driver_set(&db, 5, t.second[1]);
+        display_driver_set(&db, 4, t.second[0]);
+        display_driver_set(&db, 3, t.minute[1]);
+        display_driver_set(&db, 2, t.minute[0]);
+        display_driver_set(&db, 1, t.hour[0]);
+        display_driver_set(&db, 0, t.hour[1]);
+        display_driver_show(&db);
+        vTaskDelay(1000/portTICK_RATE_MS);
         // display_driver_scan_loop(&db);
     }
 }
 
-void rtc_service(void* o){
-    //init i2c interface
-    rtc_output_queue = xQueueCreate(1, sizeof(rtc_time_t));
-    rtc_output_queue = xQueueCreate(1, sizeof(rtc_time_t));
-    rtc_init_i2c();
-    struct rtc_time_t t;
-    while(1){
-        rtc_get_time(&t);
-        xQueueSend(rtc_output_queue, &t, 0);
-        printf("%d%d:", t.hour[0], t.hour[1]);
-        printf("%d%d:", t.minute[0], t.minute[1]);
-        printf("%d%d\n", t.second[0], t.second[1]);
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        //get time from rtc
+// void tick_servie(void* o){
+//     //init i2c interface
+//     rtc_output_queue = xQueueCreate(1, sizeof(rtc_time_t));
+//     rtc_init_i2c();
+//     struct rtc_time_t t;
+//     while(1){
+//         rtc_get_time(&t);
+//         xQueueSend(rtc_output_queue, &t, 0);
+//         printf("%d%d:", t.hour[0], t.hour[1]);
+//         printf("%d%d:", t.minute[0], t.minute[1]);
+//         printf("%d%d\n", t.second[0], t.second[1]);
+//         vTaskDelay(1000 / portTICK_RATE_MS);
+//         //get time from rtc
 
-    }
-}
+//     }
+// }
 
 
 void rgb_service(void* o){
@@ -127,7 +118,7 @@ void rgb_service(void* o){
     rgb_input_queue = xQueueCreate(1, sizeof(rgb_driver_buffer_t));
     while(1){
         if (pdTRUE == xQueueReceive(rgb_input_queue, &b, -1)){
-            display_driver_show(&b);
+            rgb_dirver_show(&b);
         }
     }
 }
@@ -186,8 +177,7 @@ void tcp_server_test(){
     }
 }
 
-void cmp_parse_service(){
-    //TODO get input from server
+void cmd_parse_loop(){
     struct espconn* connection;
     struct tcp_server_line_output input;
     char* input_line;
@@ -201,26 +191,30 @@ void cmp_parse_service(){
         switch(input_line[0]){
             case 't':
             {
+                //TODO: implement send to rtc
                 // set time
                 // time format HH:MM:SS
-                rtc_time_t time;
+                int h0, h1, m0, m1, s0, s1;
                 scan_n = sscanf(input_line + 1, "%1d%1d:%1d%1d:%1d%1d",
-                    time.hour[0],
-                    time.hour[1],
-                    time.minute[0],
-                    time.minute[1],
-                    time.hour[0],
-                    time.hour[1]);
+                    &h0,
+                    &h1,
+                    &m0,
+                    &m1,
+                    &s0,
+                    &s1);
                 if(scan_n != 6){
                     char errmsg[] = "ERROR: format error, use HH:MM:SS\n";
                     espconn_sent(connection, errmsg, sizeof(errmsg));
                 }else{
-                    if(pdTRUE != xQueueSend(rtc_input_queue, &time, 0)){
-                        char errmsg[] = "ERROR: rtc busy\n";
-                        espconn_sent(connection, errmsg, sizeof(errmsg));
-                    }else{
-                        espconn_sent(connection, TCP_SERVER_OK_RESPONSE, sizeof(TCP_SERVER_OK_RESPONSE));
-                    }
+                    char msg[] = "ERROR: not implemented yet\n";
+                    espconn_sent(connection, msg, sizeof(msg));
+                    // if(){
+                        // char errmsg[] = "ERROR: rtc busy\n";
+                        // espconn_sent(connection, errmsg, sizeof(errmsg));
+                    // }else{
+                        // TODO: send to rtc module
+                        // espconn_sent(connection, TCP_SERVER_OK_RESPONSE, sizeof(TCP_SERVER_OK_RESPONSE));
+                    // }
                 }
                 break;
             }
@@ -229,7 +223,7 @@ void cmp_parse_service(){
                 // set rgb color
                 //color format: RRGGBB (hex)
                 int r,g,b;
-                scan_n = sscanf(input_line + 1, "%2x%2x%2x", r, g, b);
+                scan_n = sscanf(input_line + 1, "%2x%2x%2x", &r, &g, &b);
                 if(scan_n != 3){
                     char errmsg[] = "ERROR: format error, use RRGGBB (hex)\n";
                     espconn_sent(connection, errmsg, sizeof(errmsg));
@@ -245,6 +239,15 @@ void cmp_parse_service(){
                 }
                 break;
             }
+            case 'w':
+            // write to rtc register
+            //format: AVV (address in hex, value in hex)
+            {
+                int a, v;
+                sscanf(input_line + 1, "%1x%2x", a, v);
+                rtc_write_reg_raw((uint8_t) a, (uint8_t) v);
+            }
+            break;
             default:
             {
                 char errmsg[] = "ERROR: unkown command\n";
