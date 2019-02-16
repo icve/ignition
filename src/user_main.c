@@ -71,7 +71,12 @@ static xQueueHandle shift_reg_quque;
 static xQueueHandle rtc_output_queue;
 static xQueueHandle rtc_input_queue;
 static xQueueHandle rgb_input_queue;
+static xQueueHandle main_clock_display_signal_queue;
 
+enum MAIN_CLOCK_DISPALY_SIGNAL{
+    MAIN_CLOCK_DISPLAY_PAUSE,
+    MAIN_CLOCK_DSIPLAY_UNPAUSE
+};
 
 void main_clock_display_loop(void* arg){
     // init shift reg pin
@@ -79,18 +84,20 @@ void main_clock_display_loop(void* arg){
     display_driver_init(&db);
     rtc_time_t t;
     rtc_init_i2c();
-
-
+    enum MAIN_CLOCK_DISPALY_SIGNAL s = MAIN_CLOCK_DSIPLAY_UNPAUSE;
+    main_clock_display_signal_queue =  xQueueCreate(1, sizeof(s));
     while(1){
-        rtc_get_time(&t);
-        display_driver_set(&db, 5, t.second[1]);
-        display_driver_set(&db, 4, t.second[0]);
-        display_driver_set(&db, 3, t.minute[1]);
-        display_driver_set(&db, 2, t.minute[0]);
-        display_driver_set(&db, 1, t.hour[0]);
-        display_driver_set(&db, 0, t.hour[1]);
-        display_driver_show(&db);
-        vTaskDelay(1000/portTICK_RATE_MS);
+        if(s == MAIN_CLOCK_DSIPLAY_UNPAUSE){
+            rtc_get_time(&t);
+            display_driver_set(&db, 5, t.second[1]);
+            display_driver_set(&db, 4, t.second[0]);
+            display_driver_set(&db, 3, t.minute[1]);
+            display_driver_set(&db, 2, t.minute[0]);
+            display_driver_set(&db, 1, t.hour[0]);
+            display_driver_set(&db, 0, t.hour[1]);
+            display_driver_show(&db);
+        }
+        xQueueReceive(main_clock_display_signal_queue, &s, 1000/portTICK_RATE_MS);
         // display_driver_scan_loop(&db);
     }
 }
@@ -177,6 +184,7 @@ void tcp_server_test(){
     }
 }
 
+//TODO check input size to catch invalid cmd and avoid reading beyond (end of) buffer
 void cmd_parse_loop(){
     struct espconn* connection;
     struct tcp_server_line_output input;
@@ -189,9 +197,9 @@ void cmd_parse_loop(){
         input_line = input.output;
         // assume first byte is command
         switch(input_line[0]){
+            /* TODO: implement send to rtc
             case 't':
             {
-                //TODO: implement send to rtc
                 // set time
                 // time format HH:MM:SS
                 int h0, h1, m0, m1, s0, s1;
@@ -218,10 +226,11 @@ void cmd_parse_loop(){
                 }
                 break;
             }
+            */
             case 'l':
+            // set rgb color
+            //color format: RRGGBB (hex)
             {
-                // set rgb color
-                //color format: RRGGBB (hex)
                 int r,g,b;
                 scan_n = sscanf(input_line + 1, "%2x%2x%2x", &r, &g, &b);
                 if(scan_n != 3){
@@ -237,8 +246,8 @@ void cmd_parse_loop(){
                         espconn_sent(connection, TCP_SERVER_OK_RESPONSE, sizeof(TCP_SERVER_OK_RESPONSE));
                     }
                 }
-                break;
             }
+            break;
             case 'w':
             // write to rtc register
             //format: AVV (address in hex, value in hex)
@@ -248,6 +257,61 @@ void cmd_parse_loop(){
                 rtc_write_reg_raw((uint8_t) a, (uint8_t) v);
             }
             break;
+            case 'p':
+            //  pause/unpause main_clock_display
+            // 0 to unpause, 1 to pause
+            {
+                enum MAIN_CLOCK_DISPALY_SIGNAL s = MAIN_CLOCK_DISPLAY_PAUSE;
+                int ok = 1;
+                if(input_line[1] == '1'){
+                    s = MAIN_CLOCK_DISPLAY_PAUSE;
+                }else if(input_line[1] == '0'){
+                    s = MAIN_CLOCK_DSIPLAY_UNPAUSE;
+                }else{
+                    ok = 0;
+                    char errmsg[] = "ERROR: use 0 to unpause, 1 to pause\n";
+                    espconn_sent(connection, errmsg, sizeof(errmsg));
+                }
+                if(ok){
+                    if (pdTRUE == xQueueSend(main_clock_display_signal_queue, &s, 0)){
+                        espconn_sent(connection, TCP_SERVER_OK_RESPONSE, sizeof(TCP_SERVER_OK_RESPONSE));
+                    }else{
+                        char errmsg[] = "ERROR: main clock display loop busy\n";
+                        espconn_sent(connection, errmsg, sizeof(errmsg));
+                    }
+                }
+            }
+            break;
+            case 's':
+            {
+                // set digit display, pause clock display first to avoid clash
+                // format: VVVVVV (V: value, 0-9)
+                uint8_t c[6];
+                display_buffer_t db;
+                int ok = 1;
+                for(int i=0;i<6;i++){
+                    char x = input_line[i + 1];
+                    if(x == '\0'){
+                        ok = 0;
+                        break;
+                    }else if(x == '-'){
+                        display_driver_set(&db, i, -1);
+                    }else if(x >= '0' && x <= '9'){
+                        display_driver_set(&db, i, x - '0');
+                    }else{
+                        ok = 0;
+                        break;
+                    }
+                }
+                if(ok){
+                    display_driver_show(&db);
+                    espconn_sent(connection, TCP_SERVER_OK_RESPONSE, sizeof(TCP_SERVER_OK_RESPONSE));
+                }else{
+                    char errmsg[] = "ERROR: format: VVVVVV (V: value, 0-9-)\n";
+                    espconn_sent(connection, errmsg, sizeof(errmsg));
+                }
+            }
+            break;            
             default:
             {
                 char errmsg[] = "ERROR: unkown command\n";
