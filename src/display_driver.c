@@ -70,9 +70,17 @@ static inline void dispaly_driver_enable(){
         dispaly_driver_enable();
 
     }
+    /*
+    update buffer (without sending out the data)
+    see dispaly_driver_show for sending out data
+    if the number is -1, the digit will be turned off
+    */
     void display_driver_set(display_buffer_t * db, uint8_t index, uint8_t number){
-        printf("n: %d, code: %x\n", number, number_code_table[number]);
-        db->cathod_shift_reg_buffer[index] = number_code_table[number];
+        if(number == (uint8_t)-1){
+            db->cathod_shift_reg_buffer[index] = DISPLAY_ALL_CATHODE_OFF;
+        }else{
+            db->cathod_shift_reg_buffer[index] = number_code_table[number];
+        }
     }
     void display_driver_show(display_buffer_t * db){
         display_driver_send_to_shift_reg(db->cathod_shift_reg_buffer, 6);
