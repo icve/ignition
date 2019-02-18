@@ -32,7 +32,7 @@ potential issues
 5. cache function
 6. gpio set function
 */
-static void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf){
+void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf){
     //DEGBUGING: write only 24 bit
         //DEBUGGING only send 0 int
         // printf("pxval: %x\n", pixel_val);
@@ -59,7 +59,7 @@ static void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf){
         pixel_val = bf->buf[i];
         // t = _getCycleCount();
         // for(int i=0;i<6;i++){
-        for(j=0; j<24 + first_run; j++){
+        for(j=0; j<24;){
             // if((pixel_val & mask)){
             //     // 1
             //     // printf("b:1, ");
@@ -100,6 +100,7 @@ static void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf){
             // while(((c = _getCycleCount()) - t) < (low_time-7)){
             //     //busy wait
             // }
+            j += (!first_run) ? 1 : 0;
             first_run = 0;
         }
     }

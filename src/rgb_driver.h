@@ -43,4 +43,4 @@ struct rgb_driver_buffer_t{
 typedef struct rgb_driver_buffer_t rgb_driver_buffer_t;
 void rgb_driver_init(rgb_driver_buffer_t* bf);
 void rgb_driver_set_all(rgb_driver_buffer_t* bf, uint8_t r, uint8_t g, uint8_t b);
-void rgb_dirver_show(rgb_driver_buffer_t* bf);
+void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf);
