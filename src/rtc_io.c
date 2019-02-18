@@ -84,7 +84,7 @@ int rtc_get_time(rtc_time_t* t){
     uint8_t mask_0_3 = 0x0F;
     uint8_t mask_4_5 = 0x30;
     //TODO: error handeling
-    xSemaphoreAltTake(RTC_IO_SEMAPHORE, -1);
+    xSemaphoreTake(RTC_IO_SEMAPHORE, -1);
     int err = rtc_read(RTC_DEVICE_ADDRESS, &(buf[0]), 5);
     xSemaphoreGive(RTC_IO_SEMAPHORE);
     if(err){
