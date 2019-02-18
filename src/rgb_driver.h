@@ -1,3 +1,5 @@
+#ifndef RGB_DRIVER_H
+#define RGB_DRIVER_H
 
 #include <esp8266/pin_mux_register.h>
 #include <c_types.h>
@@ -44,3 +46,4 @@ typedef struct rgb_driver_buffer_t rgb_driver_buffer_t;
 void rgb_driver_init(rgb_driver_buffer_t* bf);
 void rgb_driver_set_all(rgb_driver_buffer_t* bf, uint8_t r, uint8_t g, uint8_t b);
 void IRAM_ATTR rgb_driver_show(rgb_driver_buffer_t* bf);
+#endif
