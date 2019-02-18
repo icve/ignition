@@ -1,7 +1,7 @@
 #include "stdlib.h"
+#include "c_types.h"
 #include "lwip/tcp.h"
 #include "espconn/espconn.h"
-#include "espconn/espconn_tcp.h"
 #include "tcp_server.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -20,14 +20,18 @@ void data_handler(void* arg, char* pdata, unsigned short len){
     struct espconn *connection = arg;
     struct tcp_server_line_buffer* lb = TCP_SERVER_LINE_BUFFER;
 
-    // check if current connection is the connection init the line buffer
-    // char is_same_ip = memcmp(lb->ip_addr, connection->proto.tcp->remote_ip, 4) == 0;
-    // char is_same_port = lb->port == connection->proto.tcp->remote_port;
-    // if(is_same_ip && is_same_port){
-
-    // }
-    if(pdTRUE != xSemaphoreTake(TCP_SERVER_LINE_BUFFER_SEMAPHORE, 100/portTICK_RATE_MS)){
-        printf("line buffer busy, data discarded: %.*s\n", len, pdata);
+    if(pdTRUE != xSemaphoreTake(TCP_SERVER_LINE_BUFFER_SEMAPHORE, 20/portTICK_RATE_MS)){
+        char errmsg[] = "ERROR: line buffer busy, data discarded\n";
+        espconn_sent(connection, errmsg, sizeof errmsg );
+        for(int i=0;i<len; i++){
+            if(pdata[i]!='\n')
+                printf("%c", pdata[i]);
+            else
+            {
+                printf("\\n");
+            }
+        }
+        printf(";\n");
         return;
     }
     for(unsigned int i=0; i < len; i++){
@@ -42,9 +46,11 @@ void data_handler(void* arg, char* pdata, unsigned short len){
                     .connection = connection,
                     .output = l
                 };
-                if (pdTRUE != xQueueSend(TCP_SERVER_PROCESSING_QUEUE, &lo, 50 / portTICK_RATE_MS)){
+                if (pdTRUE != xQueueSend(TCP_SERVER_PROCESSING_QUEUE, &lo, 10 / portTICK_RATE_MS)){
                     printf("parser failed to catch up!\n");
                     printf("line: %s", l);
+                    char errmsg[] = "ERROR, parser busy\n";
+                    espconn_sent(connection, errmsg, sizeof(errmsg));
                     free(l);
                 }
             }
@@ -57,7 +63,7 @@ void data_handler(void* arg, char* pdata, unsigned short len){
             lb->current_size = 0;
         }
     }
-    xSemaphoreGive(TCP_SERVER_LINE_BUFFER);
+    xSemaphoreGive(TCP_SERVER_LINE_BUFFER_SEMAPHORE);
 }
 
 void disconnect_handler(void *arg){
@@ -68,7 +74,7 @@ void disconnect_handler(void *arg){
 
 }
 
-void brocken_connection_handler(void * arg){
+void brocken_connection_handler(void * arg, sint8 err){
     // struct espconn *connection = arg;
     struct tcp_server_line_buffer* lb = TCP_SERVER_LINE_BUFFER;
     lb->ongoing_connection = 0;
@@ -80,29 +86,26 @@ void connect_handler(void *arg)
 {
     struct espconn *connection = arg;
     struct tcp_server_line_buffer* lb = TCP_SERVER_LINE_BUFFER;
-    if (pdTRUE != xSemaphoreTake(TCP_SERVER_LINE_BUFFER_SEMAPHORE, 0)){
-        printf("concurrent connection!\n");
-        return;
-    }
+    portBASE_TYPE r = xSemaphoreTake(TCP_SERVER_LINE_BUFFER_SEMAPHORE, 0);
     // only alow one concurrent connection
-    if(lb->ongoing_connection){
-        char errmsg[] = "ERROR: concurrent conntion not allowed!";
+    if(lb->ongoing_connection || (r != pdTRUE)){
+        char errmsg[] = "ERROR: concurrent conntion not allowed!\n";
         espconn_sent(connection, errmsg, sizeof(errmsg));
+        espconn_disconnect(connection);
     }else{
         // new client connets, setup line bufer
         lb->ongoing_connection = 1;
         lb->current_size = 0;
         memcpy(lb->ip_addr, connection->proto.tcp->remote_ip, 4);
         lb->port = connection->proto.tcp->remote_port;
-
+        espconn_regist_time(connection, 20, 1);
         espconn_regist_recvcb(connection, data_handler);
-        // espconn_regist_reconcb(pesp_conn, webserver_recon);
         espconn_regist_disconcb(connection, disconnect_handler);
     }
     xSemaphoreGive(TCP_SERVER_LINE_BUFFER_SEMAPHORE);
 }
 
-void tcp_server_init(){
+xQueueSetHandle tcp_server_init(){
     struct espconn *c = calloc(1, sizeof *c);
     esp_tcp *esptcp = calloc(1, sizeof *esptcp);
     c->type = ESPCONN_TCP;
@@ -110,8 +113,11 @@ void tcp_server_init(){
     c->proto.tcp = esptcp;
     c->proto.tcp->local_port = TCP_SERVER_LISTEN_PORT;
     TCP_SERVER_LINE_BUFFER = calloc(1, sizeof *TCP_SERVER_LINE_BUFFER);
+    TCP_SERVER_PROCESSING_QUEUE = xQueueCreate(1, sizeof(struct tcp_server_line_output));
     vSemaphoreCreateBinary(TCP_SERVER_LINE_BUFFER_SEMAPHORE);
     espconn_regist_connectcb(c, connect_handler);
+    espconn_regist_reconcb(c, brocken_connection_handler);
     espconn_accept(c);
-    printf("accept does not block!\n");
+    printf("tcp server listening on %d\n", TCP_SERVER_LISTEN_PORT);
+    return TCP_SERVER_PROCESSING_QUEUE;
 }

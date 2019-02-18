@@ -27,7 +27,7 @@ static struct tcp_server_line_buffer* TCP_SERVER_LINE_BUFFER = NULL;
 static xQueueHandle TCP_SERVER_PROCESSING_QUEUE = NULL;
 static xSemaphoreHandle TCP_SERVER_LINE_BUFFER_SEMAPHORE = NULL;
 
-void tcp_server_init();
+xQueueHandle tcp_server_init();
 
 
 #endif

@@ -16,6 +16,8 @@
 #include "rtc_io.h"
 #include "tcp_server.h"
 
+#include "espconn.h"
+
 
 uint32 user_rf_cal_sector_set(void)
 {
@@ -177,24 +179,19 @@ void display_test(void * o){
     }
 }
 
-void tcp_server_test(){
-    tcp_server_init();
-    while(1){
-        vTaskDelay(1000/portTICK_RATE_MS);
-    }
-}
 
 //TODO check input size to catch invalid cmd and avoid reading beyond (end of) buffer
-void cmd_parse_loop(){
+void cmd_parse_loop(xQueueHandle input_queue){
     struct espconn* connection;
     struct tcp_server_line_output input;
     char* input_line;
     int scan_n;
     while(1){
-        if(pdTRUE != xQueueReceive(TCP_SERVER_PROCESSING_QUEUE, &input, -1)){
+        if(pdTRUE != xQueueReceive(input_queue, &input, -1)){
             continue;
         }
         input_line = input.output;
+        connection = input.connection;
         // assume first byte is command
         switch(input_line[0]){
             /* TODO: implement send to rtc
@@ -283,9 +280,9 @@ void cmd_parse_loop(){
             }
             break;
             case 's':
+            // set digit display, pause clock display first to avoid clash
+            // format: VVVVVV (V: value, 0-9)
             {
-                // set digit display, pause clock display first to avoid clash
-                // format: VVVVVV (V: value, 0-9)
                 uint8_t c[6];
                 display_buffer_t db;
                 int ok = 1;
@@ -323,6 +320,12 @@ void cmd_parse_loop(){
     }
 }
 
+void tcp_server_test(void * a){
+    xQueueHandle q = tcp_server_init();
+    cmd_parse_loop(q);
+    while(1){}
+}
+
 /******************************************************************************
  * FunctionName : user_init
  * Description  : entry of user application, init user function here
@@ -331,11 +334,12 @@ void cmd_parse_loop(){
 *******************************************************************************/
 void user_init(void)
 {
+    espconn_init();
     system_update_cpu_freq(160);
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
     // xTaskCreate(display_service, "display", 512, NULL, 2, NULL);
     // xTaskCreate(display_test, "dts", 512, NULL, 2, NULL);
     // xTaskCreate(rgb_test, "rgb", 1024, NULL, 2, NULL);
-    xTaskCreate(tcp_server_test, "tcpst", 512, NULL, 2, NULL);
+    xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);
 }
 
