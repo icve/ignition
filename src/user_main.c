@@ -57,18 +57,6 @@ TODO:
 
 6. Periodic connect network and perform NTP
 */
-#define PIN_SOE 0
-#define PIN_SECLK_SCK 5
-#define PIN_SER_MOSI 7
-#define PIN_RCLK_SS 8
-#define PIN_RCLK_SS_2 3
-
-//RTC i2c pin def
-#define PIN_SCL 1
-#define PIN_SDA 2
-
-#define PIN_ILED 4
-
 static xQueueHandle shift_reg_quque;
 static xQueueHandle rtc_output_queue;
 static xQueueHandle rtc_input_queue;
@@ -85,7 +73,7 @@ void main_clock_display_loop(void* arg){
     display_buffer_t db;
     display_driver_init(&db);
     rtc_time_t t;
-    rtc_init_i2c();
+    rtc_init();
     enum MAIN_CLOCK_DISPALY_SIGNAL s = MAIN_CLOCK_DSIPLAY_UNPAUSE;
     main_clock_display_signal_queue =  xQueueCreate(1, sizeof(s));
     while(1){
@@ -104,10 +92,10 @@ void main_clock_display_loop(void* arg){
     }
 }
 
-// void tick_servie(void* o){
+// void tick_service(void* o){
 //     //init i2c interface
 //     rtc_output_queue = xQueueCreate(1, sizeof(rtc_time_t));
-//     rtc_init_i2c();
+//     rtc_init();
 //     struct rtc_time_t t;
 //     while(1){
 //         rtc_get_time(&t);
@@ -125,9 +113,10 @@ void main_clock_display_loop(void* arg){
 void rgb_service(void* o){
     rgb_driver_buffer_t b;
     rgb_input_queue = xQueueCreate(1, sizeof(rgb_driver_buffer_t));
+    rgb_driver_init(&b);
     while(1){
         if (pdTRUE == xQueueReceive(rgb_input_queue, &b, -1)){
-            rgb_dirver_show(&b);
+            rgb_driver_show(&b);
         }
     }
 }
@@ -308,7 +297,24 @@ void cmd_parse_loop(xQueueHandle input_queue){
                     espconn_sent(connection, errmsg, sizeof(errmsg));
                 }
             }
-            break;            
+            break;
+            case 't':
+            {
+                rtc_time_t t;
+                printf("querying rtc\n");
+                rtc_get_time(&t);
+                char datestr[] = "00-00-00 "; // YY-MM-DD
+                char timestr[] = "00:00:00\n";
+                timestr[0] = t.hour[0] + '0';
+                timestr[1] = t.hour[1] + '0';
+                timestr[3] = t.minute[0] + '0';
+                timestr[4] = t.minute[1] + '0';
+                timestr[6] = t.second[0] + '0';
+                timestr[7] = t.second[1] + '0';
+                espconn_sent(connection, datestr, sizeof datestr);                
+                espconn_sent(connection, timestr, sizeof timestr);
+            }
+            break;
             default:
             {
                 char errmsg[] = "ERROR: unkown command\n";
@@ -334,12 +340,14 @@ void tcp_server_test(void * a){
 *******************************************************************************/
 void user_init(void)
 {
-    espconn_init();
-    system_update_cpu_freq(160);
+    // espconn_init();
+    // system_update_cpu_freq(160);
+    // rtc_init();
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
+
     // xTaskCreate(display_service, "display", 512, NULL, 2, NULL);
     // xTaskCreate(display_test, "dts", 512, NULL, 2, NULL);
-    // xTaskCreate(rgb_test, "rgb", 1024, NULL, 2, NULL);
-    xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);
+    // xTaskCreate(rgb_service, "rgb", 1024, NULL, 2, NULL);
+    // xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);
 }
 
