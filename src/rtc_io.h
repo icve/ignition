@@ -24,8 +24,22 @@ struct rtc_time_t{
 
 typedef struct rtc_time_t rtc_time_t;
 
+/*
+if the rtc communication does not work
+try putting the replacing the gpio definition in
+the rtos library directory, under driver/include/i2c_master.h
+
+#include "esp8266/pin_mux_register.h"
+#define I2C_MASTER_SDA_MUX PERIPHS_IO_MUX_GPIO4_U
+#define I2C_MASTER_SCL_MUX PERIPHS_IO_MUX_GPIO5_U
+#define I2C_MASTER_SDA_GPIO 4
+#define I2C_MASTER_SCL_GPIO 5
+#define I2C_MASTER_SDA_FUNC FUNC_GPIO4
+#define I2C_MASTER_SCL_FUNC FUNC_GPIO5
+
+*/
+int rtc_init();
 int rtc_get_time(rtc_time_t* time);
 int rtc_write_reg_raw(uint8_t address, uint8_t value);
-static xSemaphoreHandle RTC_IO_SEMAPHORE = NULL;
 
 #endif

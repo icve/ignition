@@ -5,14 +5,15 @@
 #include "i2c_master.h"
 #include "rtc_io.h"
 #define RTC_DEVICE_ADDRESS 0x68
+static xSemaphoreHandle RTC_IO_SEMAPHORE = NULL;
 /**
  * @brief i2c master initialization
  */
 int rtc_init(void)
 {
-    printf("init\n");
-    i2c_master_init();
+    printf("rtc init\n");
     i2c_master_gpio_init();
+    i2c_master_init();
     vSemaphoreCreateBinary(RTC_IO_SEMAPHORE);
     return 0;
 }
@@ -44,26 +45,30 @@ int rtc_write_reg_raw(uint8_t address, uint8_t value)
 }
 static int rtc_read(uint8_t dev_address, uint8_t *data, size_t data_len)
 {
+    int errcode = 1;
     i2c_master_start();
     // write address / set cursor
     i2c_master_writeByte(dev_address << 1 | 0);
     if(!i2c_master_checkAck()){
         i2c_master_stop();
-        return 1;
+        return errcode;
     }
+    errcode++;
     i2c_master_writeByte(0);
     i2c_master_wait(1);
     if(!i2c_master_checkAck()){
         i2c_master_stop();
-        return 1;
+        return errcode;
     }
+    errcode++;
     // repeated start
     i2c_master_start();
     i2c_master_writeByte(dev_address << 1 | 1);
     if(!i2c_master_checkAck()){
         i2c_master_stop();
-        return 1;
+        return errcode;
     }
+    errcode++;
     for(int i=0; i < data_len-1; i++){
         data[i] = i2c_master_readByte();
         i2c_master_wait(1);
@@ -79,16 +84,16 @@ static int rtc_read(uint8_t dev_address, uint8_t *data, size_t data_len)
 
 // query time from rtc
 int rtc_get_time(rtc_time_t* t){
-    uint8_t buf[3];
+    uint8_t buf[5];
     uint8_t mask_4_6 = 0x70;
     uint8_t mask_0_3 = 0x0F;
     uint8_t mask_4_5 = 0x30;
     //TODO: error handeling
     xSemaphoreTake(RTC_IO_SEMAPHORE, -1);
-    int err = rtc_read(RTC_DEVICE_ADDRESS, &(buf[0]), 5);
+    int err = rtc_read(RTC_DEVICE_ADDRESS, &(buf[0]), sizeof buf);
     xSemaphoreGive(RTC_IO_SEMAPHORE);
     if(err){
-        printf("error occured during i2c read\n");
+        printf("error occured during i2c read, errcode: %d\n", err);
         return err;
     }
     //get second
