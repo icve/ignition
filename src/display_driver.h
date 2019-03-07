@@ -25,7 +25,6 @@ anode(tube) driver:
     tubes are active-high (i.e writing 1 to the corresponding bit signals 1)
 */
 #define DISPLAY_ALL_CATHODE_OFF 0x1F
-#define DISPLAY_ALL_ANODE_OFF 0x00
 
 /*
 wiring:
@@ -93,6 +92,8 @@ struct display_buffer_t
 };
 
 #else
+
+#define DISPLAY_ALL_ANODE_OFF 0x00
 
 struct display_buffer_t
 {
