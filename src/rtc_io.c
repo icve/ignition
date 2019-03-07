@@ -84,7 +84,7 @@ static int rtc_read(uint8_t dev_address, uint8_t *data, size_t data_len)
 
 // query time from rtc
 int rtc_get_time(rtc_time_t* t){
-    uint8_t buf[5];
+    uint8_t buf[13];
     uint8_t mask_4_6 = 0x70;
     uint8_t mask_0_3 = 0x0F;
     uint8_t mask_4_5 = 0x30;
@@ -105,7 +105,16 @@ int rtc_get_time(rtc_time_t* t){
     t->minute[1] = (buf[1] & mask_0_3);
     // get hour
     t->hour[0] = (buf[2] & mask_4_6) >> 4;
-    t->hour[1] = (buf[2] & mask_4_5);
+    t->hour[1] = (buf[2] & mask_0_3);
+     //get date
+    t->date[0] = (buf[4] & mask_4_6) >> 4;
+    t->date[1] = (buf[4] & mask_0_3);
+    //get mounth
+    t->mounth[0] = (buf[5] & mask_4_6) >> 4;
+    t->mounth[1] = (buf[5] & mask_0_3);
+    //get year
+    t->year[0] = (buf[6] & mask_4_6) >> 4;
+    t->year[1] = (buf[6] & mask_0_3);
     return 0;
 }
 
