@@ -346,6 +346,8 @@ void user_init(void)
 {
     espconn_init();
     system_update_cpu_freq(160);
+    rgb_driver_buffer_t b;
+    rgb_driver_init(&b);
     // rtc_init();
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
 
