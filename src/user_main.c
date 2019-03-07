@@ -18,7 +18,11 @@
 
 #include "espconn.h"
 
-
+/*
+DO NOT MODIFY;
+NOT PART OF THE APPLICATION LOGIC; 
+system function to reserve space for wifi parameters
+*/
 uint32 user_rf_cal_sector_set(void)
 {
     flash_size_map size_map = system_get_flash_size_map();
@@ -79,12 +83,12 @@ void main_clock_display_loop(void* arg){
     while(1){
         if(s == MAIN_CLOCK_DSIPLAY_UNPAUSE){
             rtc_get_time(&t);
-            display_driver_set(&db, 5, t.second[1]);
-            display_driver_set(&db, 4, t.second[0]);
-            display_driver_set(&db, 3, t.minute[1]);
-            display_driver_set(&db, 2, t.minute[0]);
-            display_driver_set(&db, 1, t.hour[0]);
-            display_driver_set(&db, 0, t.hour[1]);
+            display_driver_set(&db, 0, t.second[1]);
+            display_driver_set(&db, 1, t.second[0]);
+            display_driver_set(&db, 2, t.minute[1]);
+            display_driver_set(&db, 3, t.minute[0]);
+            display_driver_set(&db, 4, t.hour[0]);
+            display_driver_set(&db, 5, t.hour[1]);
             display_driver_show(&db);
         }
         xQueueReceive(main_clock_display_signal_queue, &s, 1000/portTICK_RATE_MS);
@@ -272,8 +276,8 @@ void cmd_parse_loop(xQueueHandle input_queue){
             // set digit display, pause clock display first to avoid clash
             // format: VVVVVV (V: value, 0-9)
             {
-                uint8_t c[6];
                 display_buffer_t db;
+                display_driver_init(&db);
                 int ok = 1;
                 for(int i=0;i<6;i++){
                     char x = input_line[i + 1];
@@ -340,14 +344,14 @@ void tcp_server_test(void * a){
 *******************************************************************************/
 void user_init(void)
 {
-    // espconn_init();
-    // system_update_cpu_freq(160);
+    espconn_init();
+    system_update_cpu_freq(160);
     // rtc_init();
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
 
     // xTaskCreate(display_service, "display", 512, NULL, 2, NULL);
     // xTaskCreate(display_test, "dts", 512, NULL, 2, NULL);
     // xTaskCreate(rgb_service, "rgb", 1024, NULL, 2, NULL);
-    // xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);
+    xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);
 }
 
