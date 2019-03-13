@@ -87,9 +87,20 @@ void main_clock_display_loop(void* arg){
             display_driver_set(&db, 1, t.second[0]);
             display_driver_set(&db, 2, t.minute[1]);
             display_driver_set(&db, 3, t.minute[0]);
-            display_driver_set(&db, 4, t.hour[0]);
-            display_driver_set(&db, 5, t.hour[1]);
+            display_driver_set(&db, 4, t.hour[1]);
+            display_driver_set(&db, 5, t.hour[0]);
             display_driver_show(&db);
+
+            // status print (for debugging & headless sanity check) 
+            char datestr[] = "00-00-00 "; // YY-MM-DD
+            char timestr[] = "00:00:00\n";
+            timestr[0] = t.hour[0] + '0';
+            timestr[1] = t.hour[1] + '0';
+            timestr[3] = t.minute[0] + '0';
+            timestr[4] = t.minute[1] + '0';
+            timestr[6] = t.second[0] + '0';
+            timestr[7] = t.second[1] + '0';
+            printf("%s%s", datestr, timestr);
         }
         xQueueReceive(main_clock_display_signal_queue, &s, 1000/portTICK_RATE_MS);
         // display_driver_scan_loop(&db);
@@ -243,7 +254,7 @@ void cmd_parse_loop(xQueueHandle input_queue){
             //format: AVV (address in hex, value in hex)
             {
                 int a, v;
-                sscanf(input_line + 1, "%1x%2x", a, v);
+                sscanf(input_line + 1, "%1x%2x", &a, &v);
                 rtc_write_reg_raw((uint8_t) a, (uint8_t) v);
             }
             break;
@@ -306,7 +317,11 @@ void cmd_parse_loop(xQueueHandle input_queue){
             {
                 rtc_time_t t;
                 printf("querying rtc\n");
-                rtc_get_time(&t);
+                int err = rtc_get_time(&t);
+                if(err){
+                    char errmsg[] = "RTC error";
+                    espconn_sent(connection, errmsg, sizeof errmsg);
+                }else{
                 char datestr[] = "00-00-00 "; // YY-MM-DD
                 char timestr[] = "00:00:00\n";
                 timestr[0] = t.hour[0] + '0';
@@ -315,8 +330,10 @@ void cmd_parse_loop(xQueueHandle input_queue){
                 timestr[4] = t.minute[1] + '0';
                 timestr[6] = t.second[0] + '0';
                 timestr[7] = t.second[1] + '0';
-                espconn_sent(connection, datestr, sizeof datestr);                
+                // espconn_sent(connection, datestr, sizeof datestr);                
                 espconn_sent(connection, timestr, sizeof timestr);
+
+                }
             }
             break;
             default:
@@ -348,10 +365,10 @@ void user_init(void)
     system_update_cpu_freq(160);
     rgb_driver_buffer_t b;
     rgb_driver_init(&b);
+    rgb_driver_set_all(&b, 100, 0, 0);
     rtc_init();
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
-
-    // xTaskCreate(display_service, "display", 512, NULL, 2, NULL);
+    xTaskCreate(main_clock_display_loop, "clock", 512, NULL, 2, NULL);
     // xTaskCreate(display_test, "dts", 512, NULL, 2, NULL);
     // xTaskCreate(rgb_service, "rgb", 1024, NULL, 2, NULL);
     xTaskCreate(tcp_server_test, "tcpst", 1024, NULL, 2, NULL);

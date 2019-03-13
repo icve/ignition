@@ -104,14 +104,14 @@ int rtc_get_time(rtc_time_t* t){
     t->minute[0] = (buf[1] & mask_4_6) >> 4;
     t->minute[1] = (buf[1] & mask_0_3);
     // get hour
-    t->hour[0] = (buf[2] & mask_4_6) >> 4;
+    t->hour[0] = (buf[2] & mask_4_5) >> 4;
     t->hour[1] = (buf[2] & mask_0_3);
      //get date
     t->date[0] = (buf[4] & mask_4_6) >> 4;
     t->date[1] = (buf[4] & mask_0_3);
-    //get mounth
-    t->mounth[0] = (buf[5] & mask_4_6) >> 4;
-    t->mounth[1] = (buf[5] & mask_0_3);
+    //get month
+    t->month[0] = (buf[5] & mask_4_6) >> 4;
+    t->month[1] = (buf[5] & mask_0_3);
     //get year
     t->year[0] = (buf[6] & mask_4_6) >> 4;
     t->year[1] = (buf[6] & mask_0_3);
