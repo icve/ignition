@@ -83,7 +83,10 @@ void main_clock_display_loop(void* arg){
     while(1){
         if(s == MAIN_CLOCK_DSIPLAY_UNPAUSE){
             rtc_get_time(&t);
-            display_driver_set(&db, 0, t.second[1]);
+            if(!(t.second[1] == 1)){
+                display_driver_set(&db, 0, t.second[1]);
+
+            }
             display_driver_set(&db, 1, t.second[0]);
             display_driver_set(&db, 2, t.minute[1]);
             display_driver_set(&db, 3, t.minute[0]);
@@ -240,6 +243,7 @@ void cmd_parse_loop(xQueueHandle input_queue){
                 }else{
                     rgb_driver_buffer_t bf;
                     rgb_driver_set_all(&bf, r, g, b);
+                    rgb_driver_show(&bf);
                     if(pdTRUE!=xQueueSend(rgb_input_queue, &bf, 10/portTICK_RATE_MS)){
                         char errmsg[] = "ERROR: rgb driver busy\n";
                         espconn_sent(connection, errmsg, sizeof(errmsg));
@@ -365,7 +369,8 @@ void user_init(void)
     system_update_cpu_freq(160);
     rgb_driver_buffer_t b;
     rgb_driver_init(&b);
-    rgb_driver_set_all(&b, 100, 0, 0);
+    rgb_driver_set_all(&b, 0, 0, 100);
+    rgb_driver_show(&b);
     rtc_init();
     // xTaskCreate(rtc_service, "rtc service", 512, NULL, 2, NULL);
     xTaskCreate(main_clock_display_loop, "clock", 512, NULL, 2, NULL);
