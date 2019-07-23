@@ -82,30 +82,46 @@ void main_clock_display_loop(void* arg){
     main_clock_display_signal_queue =  xQueueCreate(1, sizeof(s));
     while(1){
         if(s == MAIN_CLOCK_DSIPLAY_UNPAUSE){
+            // update time
+            #if BOARD_TYPE == 0
             rtc_get_time(&t);
             if(!(t.second[1] == 1)){
-                display_driver_set(&db, 0, t.second[1]);
-
+                t.second[1] = 0;
             }
+            #else
+            
+            #endif
+            display_driver_set(&db, 0, t.second[1]);
             display_driver_set(&db, 1, t.second[0]);
             display_driver_set(&db, 2, t.minute[1]);
             display_driver_set(&db, 3, t.minute[0]);
             display_driver_set(&db, 4, t.hour[1]);
             display_driver_set(&db, 5, t.hour[0]);
+            #if BOARD_TYPE == 0
             display_driver_show(&db);
+            vTaskDelay(500 / portTICK_RATE_MS);
+            #else
+            for(int i=0; i< 5000; i++){
+                display_driver_scan_once(&db);
+            }
+            #endif
 
-            // status print (for debugging & headless sanity check) 
-            char datestr[] = "00-00-00 "; // YY-MM-DD
-            char timestr[] = "00:00:00\n";
-            timestr[0] = t.hour[0] + '0';
-            timestr[1] = t.hour[1] + '0';
-            timestr[3] = t.minute[0] + '0';
-            timestr[4] = t.minute[1] + '0';
-            timestr[6] = t.second[0] + '0';
-            timestr[7] = t.second[1] + '0';
-            printf("%s%s", datestr, timestr);
+            // // status print (for debugging & headless sanity check) 
+            // char datestr[] = "00-00-00 "; // YY-MM-DD
+            // char timestr[] = "00:00:00\n";
+            // timestr[0] = t.hour[0] + '0';
+            // timestr[1] = t.hour[1] + '0';
+            // timestr[3] = t.minute[0] + '0';
+            // timestr[4] = t.minute[1] + '0';
+            // timestr[6] = t.second[0] + '0';
+            // timestr[7] = t.second[1] + '0';
+            // printf("%s%s", datestr, timestr);
+            xQueueReceive(main_clock_display_signal_queue, &s, 0);
+        }else{
+            // clock paused; 
+            xQueueReceive(main_clock_display_signal_queue, &s, 1000/portTICK_RATE_MS);
         }
-        xQueueReceive(main_clock_display_signal_queue, &s, 1000/portTICK_RATE_MS);
+
         // display_driver_scan_loop(&db);
     }
 }

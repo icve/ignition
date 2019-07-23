@@ -117,23 +117,26 @@ static inline void dispaly_driver_enable(){
         db->is_paused = 0;
     }
 
-    void display_driver_scan_loop(display_buffer_t* db){
-        if(db->is_paused) return;
-        if(db->latch_ready){
-            uint32 t = system_get_time();
-            if(t - db->last_hold_start >= db->hold_time){
-                display_driver_latch();
-                db->latch_ready = 0;
-            }
-        }else{
-            display_driver_send_to_shift_reg(&db->anode_shift_reg_buffer[db->scan_pointer], 1);
-            display_driver_send_to_shift_reg(&db->cathod_shift_reg_buffer[db->scan_pointer], 1);
-            if(db->scan_pointer < 5){
-                db->scan_pointer++;
+    void display_driver_scan_once(display_buffer_t* db){
+            if(db->is_paused) return;
+            if(db->latch_ready){
+                uint32 t = system_get_time();
+                if(t - db->last_hold_start >= db->hold_time){
+                    display_driver_latch();
+                    db->latch_ready = 0;
+                }
+                // holding
             }else{
-                db->scan_pointer = 0;
+                display_driver_send_to_shift_reg(&db->anode_shift_reg_buffer[db->scan_pointer], 1);
+                display_driver_send_to_shift_reg(&db->cathod_shift_reg_buffer[db->scan_pointer], 1);
+                db->latch_ready = true;
+                if(db->scan_pointer < 5){
+                    db->scan_pointer++;
+                }else{
+                    db->scan_pointer = 0;
+                }
             }
-        }
     }
+
 
 #endif //end of board select
