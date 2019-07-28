@@ -1,3 +1,28 @@
+# What is this project:
+
+This project house the circuit borad design file and the firmware source code for the Internet of Things Russian Nixie display tube digital clock.
+
+![image of project result](img/nx_clk_demo_cropped.gif) 
+
+Russian [Nixie display tubes](https://en.wikipedia.org/wiki/Nixie_tube) are beautiful vintage display technologies that glows amber in the shape of numberic symbols when connected to a power source.
+
+![in14 in action](img/in14_display_tube_in_action.png)
+
+
+# Circuit borads:
+
+To contol/drive the Nixie display tube, I had designed two circuit borads name `nx_clk` and `AmberGlow`. (source files available soon)
+
+
+* nx_clk front and back
+![nx_clk front](img/nx_clk_pcb_front.png)
+![nx_clk back](img/nx_clk_pcb_back.png)
+
+* AmberGlow front and back
+![AmberGlow front](img/AmberGlow_pcb_front.png)
+![AmberGlow back](img/AmberGlow_pcb_back.png)
+
+# Note for firmware contributors:
 
 ## Project status
 The main features are completed, additional features are to be added.
@@ -11,7 +36,7 @@ The main features are completed, additional features are to be added.
 * rgb tea light
 * clock overflow animation
 * wifi password
-* tcp ssl authenti
+* tcp ssl auth
 
 
 ### completed:
