@@ -9,9 +9,9 @@ Russian [Nixie display tubes](https://en.wikipedia.org/wiki/Nixie_tube) are beau
 ![in14 in action](img/in14_display_tube_in_action.png)
 
 
-# Circuit borads:
+# Circuit board:
 
-To contol/drive the Nixie display tube, I had designed two circuit borads name `nx_clk` and `AmberGlow`. (source files available soon)
+To contol/drive the Nixie display tube, I had designed two circuit board name `nx_clk` and `AmberGlow`. (source files available soon)
 
 
 * nx_clk front and back
